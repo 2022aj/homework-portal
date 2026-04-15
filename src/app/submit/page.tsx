@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { supabase } from "@/lib/supabase";
 
 type Assignment = {
   id: string;
@@ -154,20 +155,21 @@ export default function SubmitPage() {
       return;
     }
 
-    const uploadResult = await fetch(
-      `/storage/v1/object/upload/sign/assignment-files/${uploadSetupPayload.filePath}?token=${uploadSetupPayload.token}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": selectedFile.type || "application/octet-stream",
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+    const { error: signedUploadError } = await supabase.storage
+      .from("assignment-files")
+      .uploadToSignedUrl(
+        uploadSetupPayload.filePath,
+        uploadSetupPayload.token,
+        selectedFile,
+        {
+          contentType: selectedFile.type || undefined,
         },
-        body: selectedFile,
-      },
-    );
+      );
 
-    if (!uploadResult.ok) {
-      setUploadStatusMessage("Could not upload the file to storage.");
+    if (signedUploadError) {
+      setUploadStatusMessage(
+        `Could not upload the file to storage: ${signedUploadError.message}`,
+      );
       setIsUploading(false);
       return;
     }
