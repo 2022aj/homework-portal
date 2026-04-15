@@ -23,6 +23,11 @@ type ReviewSubmission = {
   file_url: string | null;
 };
 
+type AssignmentOption = {
+  id: string;
+  title: string;
+};
+
 function formatSubmittedAt(timestamp: string) {
   return new Date(timestamp).toLocaleString("en-US", {
     month: "long",
@@ -35,20 +40,21 @@ function formatSubmittedAt(timestamp: string) {
 
 export default function ReviewPage() {
   const [submissions, setSubmissions] = useState<ReviewSubmission[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentOption[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAssignmentTitle, setSelectedAssignmentTitle] = useState("all");
   const [studentSearch, setStudentSearch] = useState("");
 
   const assignmentOptions = useMemo(() => {
-    const titles = submissions
-      .map((submission) => submission.assignments?.title)
+    const titles = assignments
+      .map((assignment) => assignment.title)
       .filter((title): title is string => Boolean(title));
 
     return Array.from(new Set(titles)).sort((first, second) =>
       first.localeCompare(second),
     );
-  }, [submissions]);
+  }, [assignments]);
 
   const filteredSubmissions = useMemo(() => {
     const normalizedSearch = studentSearch.trim().toLowerCase();
@@ -70,27 +76,47 @@ export default function ReviewPage() {
     let isActive = true;
 
     async function loadSubmissions() {
-      const response = await fetch("/api/admin/review", {
-        method: "GET",
-        cache: "no-store",
-      });
+      const [reviewResponse, assignmentsResponse] = await Promise.all([
+        fetch("/api/admin/review", {
+          method: "GET",
+          cache: "no-store",
+        }),
+        fetch("/api/admin/assignments", {
+          method: "GET",
+          cache: "no-store",
+        }),
+      ]);
 
       if (!isActive) {
         return;
       }
 
-      const payload = (await response.json()) as {
+      const payload = (await reviewResponse.json()) as {
         submissions?: ReviewSubmission[];
         error?: string;
       };
 
-      if (!response.ok) {
+      const assignmentsPayload = (await assignmentsResponse.json()) as {
+        assignments?: AssignmentOption[];
+        error?: string;
+      };
+
+      if (!reviewResponse.ok) {
         setStatusMessage(payload.error ?? "Could not load submissions.");
         setIsLoading(false);
         return;
       }
 
+      if (!assignmentsResponse.ok) {
+        setStatusMessage(
+          assignmentsPayload.error ?? "Could not load assignment filters.",
+        );
+        setIsLoading(false);
+        return;
+      }
+
       setSubmissions(payload.submissions ?? []);
+      setAssignments(assignmentsPayload.assignments ?? []);
       setIsLoading(false);
     }
 

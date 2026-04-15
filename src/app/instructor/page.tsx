@@ -294,8 +294,8 @@ export default function InstructorPage() {
             Create an assignment slot
           </h1>
           <p className="max-w-xl text-lg leading-8 text-slate-700">
-            This form now saves real assignments into Supabase. As soon as you
-            create one here, it becomes available on the student upload page.
+            Create each assignment here so that the students can submit it on
+            their upload page.
           </p>
           <div>
             <div className="flex flex-col gap-3 sm:flex-row">
