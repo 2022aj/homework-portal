@@ -128,23 +128,70 @@ export default function SubmitPage() {
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.set("studentName", studentName);
-    formData.set("assignmentId", selectedAssignment.id);
-    formData.set("file", selectedFile);
-
-    const response = await fetch("/api/public/submit", {
+    const uploadSetupResponse = await fetch("/api/public/submit", {
       method: "POST",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        assignmentId: selectedAssignment.id,
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+      }),
     });
 
-    const payload = (await response.json()) as {
+    const uploadSetupPayload = (await uploadSetupResponse.json()) as {
+      filePath?: string;
+      token?: string;
+      error?: string;
+    };
+
+    if (!uploadSetupResponse.ok || !uploadSetupPayload.filePath || !uploadSetupPayload.token) {
+      setUploadStatusMessage(
+        uploadSetupPayload.error ?? "Could not prepare file upload.",
+      );
+      setIsUploading(false);
+      return;
+    }
+
+    const uploadResult = await fetch(
+      `/storage/v1/object/upload/sign/assignment-files/${uploadSetupPayload.filePath}?token=${uploadSetupPayload.token}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": selectedFile.type || "application/octet-stream",
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "",
+        },
+        body: selectedFile,
+      },
+    );
+
+    if (!uploadResult.ok) {
+      setUploadStatusMessage("Could not upload the file to storage.");
+      setIsUploading(false);
+      return;
+    }
+
+    const finalizeResponse = await fetch("/api/public/submit-finalize", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        studentName,
+        assignmentId: selectedAssignment.id,
+        fileName: selectedFile.name,
+        filePath: uploadSetupPayload.filePath,
+      }),
+    });
+
+    const payload = (await finalizeResponse.json()) as {
       submissionId?: string;
       generatedQuestions?: GeneratedQuestion[];
       error?: string;
     };
 
-    if (!response.ok) {
+    if (!finalizeResponse.ok) {
       setUploadStatusMessage(payload.error ?? "Could not submit assignment.");
       setIsUploading(false);
       return;
