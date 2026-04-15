@@ -218,45 +218,8 @@ export default function SubmitPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 lg:px-10">
-      <section className="hero-shell overflow-hidden rounded-[2.2rem] p-8 md:p-10">
-        <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr]">
-          <div className="space-y-5">
-            <p className="hero-chip">Student submission</p>
-            <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
-              Submit your work and respond to a randomized question set.
-            </h1>
-            <p className="max-w-2xl text-lg leading-8 text-slate-700">
-              Upload your assignment, then answer the follow-up questions
-              generated from that assignment&apos;s question bank.
-            </p>
-          </div>
-
-          <div className="grid gap-3">
-            <div className="hero-stat">
-              <p className="hero-stat-label">Step 1</p>
-              <p className="hero-stat-value">Upload your file</p>
-            </div>
-            <div className="hero-stat">
-              <p className="hero-stat-label">Step 2</p>
-              <p className="hero-stat-value">Answer 3 selected questions</p>
-            </div>
-            <div className="hero-stat">
-              <p className="hero-stat-label">Accepted formats</p>
-              <p className="hero-stat-value">.xlsx, .xls, .ppt, .pptx</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
         <form className="card-panel card-panel-soft gap-5" onSubmit={handleUpload}>
-          <div className="space-y-2">
-            <p className="section-label">Step 1</p>
-            <h2 className="text-2xl font-semibold text-slate-900">
-              Upload your assignment
-            </h2>
-          </div>
-
           <div className="grid gap-4">
             <label className="form-field">
               <span>Your name</span>
@@ -315,23 +278,15 @@ export default function SubmitPage() {
         </form>
 
         <form className="card-panel gap-5" onSubmit={handleAnswerSubmit}>
-          <div className="space-y-2">
-            <p className="section-label">Step 2</p>
-            <h2 className="text-2xl font-semibold text-slate-900">
-              Answer the follow-up questions
-            </h2>
-          </div>
-
-          <div className="info-box info-box-amber">
-            These questions are now pulled randomly from the question bank for
-            the assignment you selected.
-          </div>
+          <h2 className="text-2xl font-semibold text-slate-900">
+            Questions
+          </h2>
 
           <div className="space-y-4">
             {generatedQuestions.length === 0 ? (
               <p className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
-                Upload a file first. Your questions will appear here right after
-                the upload succeeds.
+                Upload your file first. Your questions will be generated once the
+                upload is successful.
               </p>
             ) : null}
 
