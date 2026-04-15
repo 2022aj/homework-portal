@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AdminLogoutButton } from "@/components/admin-logout-button";
 import { supabase } from "@/lib/supabase";
 
 type ReviewSubmission = {
@@ -124,14 +126,25 @@ export default function ReviewPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10 lg:px-10">
       <section className="card-panel space-y-4">
-        <p className="section-label">Instructor review</p>
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-          Review student submissions
-        </h1>
-        <p className="max-w-3xl text-lg leading-8 text-slate-700">
-          This page shows each uploaded file, the generated follow-up questions,
-          and the student&apos;s saved answers in one place.
-        </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-4">
+            <p className="section-label">Instructor review</p>
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900">
+              Review student submissions
+            </h1>
+            <p className="max-w-3xl text-lg leading-8 text-slate-700">
+              This page shows each uploaded file, the generated follow-up questions,
+              and the student&apos;s saved answers in one place.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link className="button-secondary" href="/instructor">
+              Back to instructor
+            </Link>
+            <AdminLogoutButton />
+          </div>
+        </div>
       </section>
 
       <section className="card-panel">

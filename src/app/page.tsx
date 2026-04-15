@@ -31,18 +31,15 @@ export default function Home() {
             <p className="max-w-2xl text-lg leading-8 text-slate-700">
               This is the first version of your website for college homework
               submissions. Students can upload a file and answer questions.
-              Instructors can create assignment slots and review responses.
+              Instructor pages are protected behind a private login.
             </p>
           </div>
           <div className="flex flex-col gap-4 sm:flex-row">
-            <Link className="button-primary" href="/instructor">
-              Open instructor dashboard
+            <Link className="button-primary" href="/submit">
+              Open student submission page
             </Link>
-            <Link className="button-secondary" href="/submit">
-              View student submission page
-            </Link>
-            <Link className="button-secondary" href="/review">
-              Open review page
+            <Link className="button-secondary" href="/admin-login">
+              Instructor login
             </Link>
           </div>
         </div>

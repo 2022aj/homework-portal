@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { AdminLogoutButton } from "@/components/admin-logout-button";
 import { supabase } from "@/lib/supabase";
 
 type Assignment = {
@@ -300,9 +301,12 @@ export default function InstructorPage() {
             create one here, it becomes available on the student upload page.
           </p>
           <div>
-            <Link className="button-secondary" href="/review">
-              Open review page
-            </Link>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link className="button-secondary" href="/review">
+                Open review page
+              </Link>
+              <AdminLogoutButton />
+            </div>
           </div>
         </div>
 
