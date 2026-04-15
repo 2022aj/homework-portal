@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Homework Portal",
-  description: "Upload homework, generate questions, and review answers.",
+  title: "Logistics Projects Submission Portal",
+  description: "Logistics Projects Submission Portal",
 };
 
 export default function RootLayout({
