@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Assignment = {
@@ -30,6 +31,7 @@ function formatAcceptedTypes(types: string[]) {
 }
 
 export default function SubmitPage() {
+  const router = useRouter();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [studentName, setStudentName] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
@@ -261,8 +263,8 @@ export default function SubmitPage() {
     setSubmissionId("");
     setGeneratedQuestions([]);
     setAnswers({});
-    setAnswerStatusMessage("Answers saved successfully.");
     setIsSavingAnswers(false);
+    router.push("/submit/thank-you");
   }
 
   return (
