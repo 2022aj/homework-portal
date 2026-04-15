@@ -31,41 +31,63 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center px-6 py-10">
-      <section className="card-panel gap-6">
-        <div className="space-y-3">
-          <p className="section-label">Admin access</p>
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-            Instructor login
-          </h1>
-          <p className="text-lg leading-8 text-slate-700">
-            This login protects the instructor dashboard and review pages.
-            Students should only use the submission page.
-          </p>
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center px-6 py-10">
+      <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+        <div className="card-panel card-panel-dark gap-6">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">
+              Instructor access
+            </p>
+            <h1 className="text-4xl font-bold tracking-tight text-white">
+              Protected workspace
+            </h1>
+            <p className="text-lg leading-8 text-slate-300">
+              Use your private admin password to access assignments, question
+              banks, and the review dashboard.
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm leading-7 text-slate-200">
+              Students only need the submission page. Instructor tools stay
+              behind this login.
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm leading-7 text-slate-300">
+              After logging in, you can create assignments, manage random
+              question banks, and review final submissions.
+            </div>
+          </div>
         </div>
 
-        <form className="grid gap-4" onSubmit={handleSubmit}>
-          <label className="form-field">
-            <span>Admin password</span>
-            <input
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Enter your instructor password"
-              required
-              type="password"
-              value={password}
-            />
-          </label>
+        <section className="card-panel gap-6">
+          <div className="space-y-3">
+            <p className="section-label">Admin sign-in</p>
+            <h2 className="text-3xl font-semibold tracking-tight text-slate-900">
+              Enter your password
+            </h2>
+          </div>
 
-          <button className="button-primary" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
+          <form className="grid gap-4" onSubmit={handleSubmit}>
+            <label className="form-field">
+              <span>Admin password</span>
+              <input
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter your instructor password"
+                required
+                type="password"
+                value={password}
+              />
+            </label>
 
-          {errorMessage ? (
-            <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white">
-              {errorMessage}
-            </p>
-          ) : null}
-        </form>
+            <button className="button-primary" disabled={isSubmitting} type="submit">
+              {isSubmitting ? "Signing in..." : "Sign in"}
+            </button>
+
+            {errorMessage ? (
+              <p className="status-box status-box-error">{errorMessage}</p>
+            ) : null}
+          </form>
+        </section>
       </section>
     </main>
   );

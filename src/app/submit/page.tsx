@@ -218,58 +218,86 @@ export default function SubmitPage() {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 lg:px-10">
-      <section className="card-panel space-y-4">
-        <p className="section-label">Student submission</p>
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900">
-          Upload your assignment and answer follow-up questions
-        </h1>
-        <p className="max-w-3xl text-lg leading-8 text-slate-700">
-          The upload form below now sends files to your Supabase bucket and
-          saves the submission details in your database.
-        </p>
+      <section className="hero-shell overflow-hidden rounded-[2.2rem] p-8 md:p-10">
+        <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr]">
+          <div className="space-y-5">
+            <p className="hero-chip">Student submission</p>
+            <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
+              Submit your work and respond to a randomized question set.
+            </h1>
+            <p className="max-w-2xl text-lg leading-8 text-slate-700">
+              Upload your assignment, then answer the follow-up questions
+              generated from that assignment&apos;s question bank.
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="hero-stat">
+              <p className="hero-stat-label">Step 1</p>
+              <p className="hero-stat-value">Upload your file</p>
+            </div>
+            <div className="hero-stat">
+              <p className="hero-stat-label">Step 2</p>
+              <p className="hero-stat-value">Answer 3 selected questions</p>
+            </div>
+            <div className="hero-stat">
+              <p className="hero-stat-label">Accepted formats</p>
+              <p className="hero-stat-value">.xlsx, .xls, .ppt, .pptx</p>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-        <form className="card-panel gap-5" onSubmit={handleUpload}>
-          <label className="form-field">
-            <span>Your name</span>
-            <input
-              onChange={(event) => setStudentName(event.target.value)}
-              placeholder="Jordan Lee"
-              required
-              type="text"
-              value={studentName}
-            />
-          </label>
+        <form className="card-panel card-panel-soft gap-5" onSubmit={handleUpload}>
+          <div className="space-y-2">
+            <p className="section-label">Step 1</p>
+            <h2 className="text-2xl font-semibold text-slate-900">
+              Upload your assignment
+            </h2>
+          </div>
 
-          <label className="form-field">
-            <span>Assignment</span>
-            <select
-              disabled={isLoadingAssignments || assignments.length === 0}
-              onChange={(event) => setAssignmentId(event.target.value)}
-              required
-              value={assignmentId}
-            >
-              {assignments.map((assignment) => (
-                <option key={assignment.id} value={assignment.id}>
-                  {assignment.title}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid gap-4">
+            <label className="form-field">
+              <span>Your name</span>
+              <input
+                onChange={(event) => setStudentName(event.target.value)}
+                placeholder="Jordan Lee"
+                required
+                type="text"
+                value={studentName}
+              />
+            </label>
 
-          <label className="form-field">
-            <span>Upload file</span>
-            <input
-              accept=".xlsx,.xls,.ppt,.pptx"
-              onChange={handleFileChange}
-              ref={fileInputRef}
-              required
-              type="file"
-            />
-          </label>
+            <label className="form-field">
+              <span>Assignment</span>
+              <select
+                disabled={isLoadingAssignments || assignments.length === 0}
+                onChange={(event) => setAssignmentId(event.target.value)}
+                required
+                value={assignmentId}
+              >
+                {assignments.map((assignment) => (
+                  <option key={assignment.id} value={assignment.id}>
+                    {assignment.title}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <div className="rounded-2xl border border-dashed border-sky-300 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-950">
+            <label className="form-field">
+              <span>Upload file</span>
+              <input
+                accept=".xlsx,.xls,.ppt,.pptx"
+                onChange={handleFileChange}
+                ref={fileInputRef}
+                required
+                type="file"
+              />
+            </label>
+          </div>
+
+          <div className="info-box info-box-sky">
             {selectedAssignment
               ? `Accepted for this assignment: ${formatAcceptedTypes(
                   selectedAssignment.allowed_file_types,
@@ -282,26 +310,24 @@ export default function SubmitPage() {
           </button>
 
           {uploadStatusMessage ? (
-            <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white">
-              {uploadStatusMessage}
-            </p>
+            <p className="status-box">{uploadStatusMessage}</p>
           ) : null}
         </form>
 
-        <form className="card-panel" onSubmit={handleAnswerSubmit}>
+        <form className="card-panel gap-5" onSubmit={handleAnswerSubmit}>
           <div className="space-y-2">
-            <p className="section-label">Generated questions</p>
+            <p className="section-label">Step 2</p>
             <h2 className="text-2xl font-semibold text-slate-900">
               Answer the follow-up questions
             </h2>
           </div>
 
-          <div className="mt-6 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">
+          <div className="info-box info-box-amber">
             These questions are now pulled randomly from the question bank for
             the assignment you selected.
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="space-y-4">
             {generatedQuestions.length === 0 ? (
               <p className="rounded-[1.5rem] border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-7 text-slate-700">
                 Upload a file first. Your questions will appear here right after
@@ -312,7 +338,7 @@ export default function SubmitPage() {
             {generatedQuestions.map((question, index) => (
               <label
                 key={question.id}
-                className="form-field rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
+                className="form-field rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
               >
                 <span>
                   Question {index + 1}: {question.question_text}
@@ -337,9 +363,7 @@ export default function SubmitPage() {
           </button>
 
           {answerStatusMessage ? (
-            <p className="mt-4 rounded-2xl bg-slate-900 px-4 py-3 text-sm text-white">
-              {answerStatusMessage}
-            </p>
+            <p className="status-box">{answerStatusMessage}</p>
           ) : null}
         </form>
       </section>
