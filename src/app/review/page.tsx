@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AdminLogoutButton } from "@/components/admin-logout-button";
-import { supabase } from "@/lib/supabase";
 
 type ReviewSubmission = {
   id: string;
@@ -21,24 +20,7 @@ type ReviewSubmission = {
       answer_text: string;
     }>;
   }>;
-};
-
-type SubmissionQueryRow = {
-  id: string;
-  student_name: string;
-  file_name: string;
-  file_path: string;
-  submitted_at: string;
-  assignments: Array<{
-    title: string;
-  }>;
-  generated_questions: Array<{
-    id: string;
-    question_text: string;
-    student_answers: Array<{
-      answer_text: string;
-    }>;
-  }>;
+  file_url: string | null;
 };
 
 function formatSubmittedAt(timestamp: string) {
@@ -88,31 +70,27 @@ export default function ReviewPage() {
     let isActive = true;
 
     async function loadSubmissions() {
-      const { data, error } = await supabase
-        .from("submissions")
-        .select(
-          "id, student_name, file_name, file_path, submitted_at, assignments(title), generated_questions(id, question_text, student_answers(answer_text))",
-        )
-        .order("submitted_at", { ascending: false });
+      const response = await fetch("/api/admin/review", {
+        method: "GET",
+        cache: "no-store",
+      });
 
       if (!isActive) {
         return;
       }
 
-      if (error) {
-        setStatusMessage(`Could not load submissions: ${error.message}`);
+      const payload = (await response.json()) as {
+        submissions?: ReviewSubmission[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setStatusMessage(payload.error ?? "Could not load submissions.");
         setIsLoading(false);
         return;
       }
 
-      const normalizedSubmissions = ((data as SubmissionQueryRow[]) ?? []).map(
-        (submission) => ({
-          ...submission,
-          assignments: submission.assignments[0] ?? null,
-        }),
-      );
-
-      setSubmissions(normalizedSubmissions);
+      setSubmissions(payload.submissions ?? []);
       setIsLoading(false);
     }
 
@@ -229,10 +207,6 @@ export default function ReviewPage() {
 
         <div className="grid gap-6">
           {filteredSubmissions.map((submission) => {
-            const fileUrl = supabase.storage
-              .from("assignment-files")
-              .getPublicUrl(submission.file_path).data.publicUrl;
-
             return (
               <article
                 key={submission.id}
@@ -259,7 +233,7 @@ export default function ReviewPage() {
                   <div className="flex items-start">
                     <a
                       className="button-secondary"
-                      href={fileUrl}
+                      href={submission.file_url ?? "#"}
                       rel="noreferrer"
                       target="_blank"
                     >

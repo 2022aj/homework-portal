@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { supabase } from "@/lib/supabase";
 
 type Assignment = {
   id: string;
@@ -18,12 +17,6 @@ type Assignment = {
   allowed_file_types: string[];
 };
 
-type QuestionBankQuestion = {
-  id: string;
-  assignment_id: string;
-  question_text: string;
-};
-
 type GeneratedQuestion = {
   id: string;
   question_text: string;
@@ -31,29 +24,8 @@ type GeneratedQuestion = {
 
 type AnswerDraft = Record<string, string>;
 
-function sanitizeFileName(fileName: string) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
-}
-
 function formatAcceptedTypes(types: string[]) {
   return types.map((type) => `.${type}`).join(", ");
-}
-
-function pickRandomQuestions(
-  questions: QuestionBankQuestion[],
-  count: number,
-) {
-  const shuffledQuestions = [...questions];
-
-  for (let index = shuffledQuestions.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [shuffledQuestions[index], shuffledQuestions[swapIndex]] = [
-      shuffledQuestions[swapIndex],
-      shuffledQuestions[index],
-    ];
-  }
-
-  return shuffledQuestions.slice(0, count);
 }
 
 export default function SubmitPage() {
@@ -82,22 +54,27 @@ export default function SubmitPage() {
     let isActive = true;
 
     async function loadAssignments() {
-      const { data, error } = await supabase
-        .from("assignments")
-        .select("id, title, description, due_date, allowed_file_types")
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/public/assignments", {
+        method: "GET",
+        cache: "no-store",
+      });
 
       if (!isActive) {
         return;
       }
 
-      if (error) {
-        setUploadStatusMessage(`Could not load assignments: ${error.message}`);
+      const payload = (await response.json()) as {
+        assignments?: Assignment[];
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setUploadStatusMessage(payload.error ?? "Could not load assignments.");
         setIsLoadingAssignments(false);
         return;
       }
 
-      const loadedAssignments = (data as Assignment[]) ?? [];
+      const loadedAssignments = payload.assignments ?? [];
       setAssignments(loadedAssignments);
       setAssignmentId(loadedAssignments[0]?.id ?? "");
       setIsLoadingAssignments(false);
@@ -127,15 +104,15 @@ export default function SubmitPage() {
     setUploadStatusMessage("");
     setAnswerStatusMessage("");
 
+    if (!selectedFile) {
+      setUploadStatusMessage("Please choose a file before submitting.");
+      return;
+    }
+
     if (!selectedAssignment) {
       setUploadStatusMessage(
         "Please create an assignment first on the instructor page.",
       );
-      return;
-    }
-
-    if (!selectedFile) {
-      setUploadStatusMessage("Please choose a file before submitting.");
       return;
     }
 
@@ -150,85 +127,31 @@ export default function SubmitPage() {
       return;
     }
 
-    const { data: questionBankRows, error: questionBankError } = await supabase
-      .from("question_bank")
-      .select("id, assignment_id, question_text")
-      .eq("assignment_id", selectedAssignment.id);
-
-    if (questionBankError) {
-      setUploadStatusMessage(
-        `Could not load the question bank: ${questionBankError.message}`,
-      );
-      return;
-    }
-
-    const availableQuestions = (questionBankRows as QuestionBankQuestion[]) ?? [];
-
-    if (availableQuestions.length < 3) {
-      setUploadStatusMessage(
-        "This assignment needs at least 3 saved bank questions before a student can submit.",
-      );
-      return;
-    }
-
     setIsUploading(true);
+    const formData = new FormData();
+    formData.set("studentName", studentName);
+    formData.set("assignmentId", selectedAssignment.id);
+    formData.set("file", selectedFile);
 
-    const safeFileName = sanitizeFileName(selectedFile.name);
-    const filePath = `${selectedAssignment.id}/${Date.now()}-${safeFileName}`;
+    const response = await fetch("/api/public/submit", {
+      method: "POST",
+      body: formData,
+    });
 
-    const { error: uploadError } = await supabase.storage
-      .from("assignment-files")
-      .upload(filePath, selectedFile, {
-        upsert: false,
-      });
+    const payload = (await response.json()) as {
+      submissionId?: string;
+      generatedQuestions?: GeneratedQuestion[];
+      error?: string;
+    };
 
-    if (uploadError) {
-      setUploadStatusMessage(`Could not upload file: ${uploadError.message}`);
+    if (!response.ok) {
+      setUploadStatusMessage(payload.error ?? "Could not submit assignment.");
       setIsUploading(false);
       return;
     }
 
-    const { data: submissionData, error: submissionError } = await supabase
-      .from("submissions")
-      .insert({
-        assignment_id: selectedAssignment.id,
-        student_name: studentName,
-        file_name: selectedFile.name,
-        file_path: filePath,
-      })
-      .select("id")
-      .single();
-
-    if (submissionError) {
-      setUploadStatusMessage(
-        `File uploaded, but saving failed: ${submissionError.message}`,
-      );
-      setIsUploading(false);
-      return;
-    }
-
-    const selectedQuestions = pickRandomQuestions(availableQuestions, 3);
-
-    const { data: questionRows, error: questionError } = await supabase
-      .from("generated_questions")
-      .insert(
-        selectedQuestions.map((question) => ({
-          submission_id: submissionData.id,
-          question_text: question.question_text,
-        })),
-      )
-      .select("id, question_text");
-
-    if (questionError) {
-      setUploadStatusMessage(
-        `File uploaded, but question generation failed: ${questionError.message}`,
-      );
-      setIsUploading(false);
-      return;
-    }
-
-    const savedQuestions = (questionRows as GeneratedQuestion[]) ?? [];
-    setSubmissionId(submissionData.id);
+    const savedQuestions = payload.generatedQuestions ?? [];
+    setSubmissionId(payload.submissionId ?? "");
     setGeneratedQuestions(savedQuestions);
     setAnswers(
       Object.fromEntries(savedQuestions.map((question) => [question.id, ""])),
@@ -263,16 +186,24 @@ export default function SubmitPage() {
 
     setIsSavingAnswers(true);
 
-    const { error } = await supabase.from("student_answers").insert(
-      generatedQuestions.map((question) => ({
-        question_id: question.id,
-        submission_id: submissionId,
-        answer_text: answers[question.id].trim(),
-      })),
-    );
+    const response = await fetch("/api/public/submit-answers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        submissionId,
+        answers: generatedQuestions.map((question) => ({
+          questionId: question.id,
+          answerText: answers[question.id].trim(),
+        })),
+      }),
+    });
 
-    if (error) {
-      setAnswerStatusMessage(`Could not save answers: ${error.message}`);
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setAnswerStatusMessage(payload.error ?? "Could not save answers.");
       setIsSavingAnswers(false);
       return;
     }

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { AdminLogoutButton } from "@/components/admin-logout-button";
-import { supabase } from "@/lib/supabase";
 
 type Assignment = {
   id: string;
@@ -60,50 +59,53 @@ export default function InstructorPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [draftQuestions, setDraftQuestions] = useState<Record<string, string>>({});
 
-  async function fetchAssignments() {
-    return supabase
-      .from("assignments")
-      .select("*")
-      .order("created_at", { ascending: false });
-  }
+  async function loadAdminData() {
+    const response = await fetch("/api/admin/assignments", {
+      method: "GET",
+      cache: "no-store",
+    });
 
-  async function fetchQuestionBank() {
-    return supabase
-      .from("question_bank")
-      .select("*")
-      .order("created_at", { ascending: true });
+    const payload = (await response.json()) as {
+      assignments?: Assignment[];
+      questionBank?: QuestionBankQuestion[];
+      error?: string;
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Could not load admin data.");
+    }
+
+    return {
+      assignments: payload.assignments ?? [],
+      questionBank: payload.questionBank ?? [],
+    };
   }
 
   useEffect(() => {
     let isActive = true;
 
     async function loadAssignments() {
-      const [
-        { data: assignmentData, error: assignmentError },
-        { data: questionData, error: questionError },
-      ] = await Promise.all([fetchAssignments(), fetchQuestionBank()]);
+      try {
+        const { assignments: assignmentData, questionBank: questionData } =
+          await loadAdminData();
 
-      if (!isActive) {
-        return;
-      }
+        if (!isActive) {
+          return;
+        }
 
-      if (assignmentError) {
-        setStatusMessage(`Could not load assignments: ${assignmentError.message}`);
+        setAssignments(assignmentData);
+        setQuestionBank(questionData);
         setIsLoading(false);
-        return;
-      }
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
 
-      if (questionError) {
-        setQuestionStatusMessage(
-          `Could not load question bank: ${questionError.message}`,
-        );
+        const message =
+          error instanceof Error ? error.message : "Could not load instructor data.";
+        setStatusMessage(message);
         setIsLoading(false);
-        return;
       }
-
-      setAssignments((assignmentData as Assignment[]) ?? []);
-      setQuestionBank((questionData as QuestionBankQuestion[]) ?? []);
-      setIsLoading(false);
     }
 
     void loadAssignments();
@@ -118,15 +120,23 @@ export default function InstructorPage() {
     setIsSaving(true);
     setStatusMessage("");
 
-    const { error } = await supabase.from("assignments").insert({
-      title,
-      description: description || null,
-      due_date: dueDate || null,
-      allowed_file_types: fileTypeOptions[fileTypeGroup],
+    const response = await fetch("/api/admin/assignments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title,
+        description,
+        dueDate,
+        allowedFileTypes: fileTypeOptions[fileTypeGroup],
+      }),
     });
 
-    if (error) {
-      setStatusMessage(`Could not save assignment: ${error.message}`);
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setStatusMessage(payload.error ?? "Could not save assignment.");
       setIsSaving(false);
       return;
     }
@@ -136,17 +146,8 @@ export default function InstructorPage() {
     setFileTypeGroup("excel");
     setDescription("");
     setStatusMessage("Assignment saved successfully.");
-    const { data, error: reloadError } = await fetchAssignments();
-
-    if (reloadError) {
-      setStatusMessage(
-        `Assignment saved, but refreshing failed: ${reloadError.message}`,
-      );
-      setIsSaving(false);
-      return;
-    }
-
-    setAssignments((data as Assignment[]) ?? []);
+    const { assignments: assignmentData } = await loadAdminData();
+    setAssignments(assignmentData);
     setIsSaving(false);
   }
 
@@ -166,28 +167,27 @@ export default function InstructorPage() {
     setIsSavingQuestion(true);
     setQuestionStatusMessage("");
 
-    const { error } = await supabase.from("question_bank").insert({
-      assignment_id: assignmentId,
-      question_text: draftQuestion,
+    const response = await fetch("/api/admin/question-bank", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        assignmentId,
+        questionText: draftQuestion,
+      }),
     });
 
-    if (error) {
-      setQuestionStatusMessage(`Could not save question: ${error.message}`);
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setQuestionStatusMessage(payload.error ?? "Could not save question.");
       setIsSavingQuestion(false);
       return;
     }
 
-    const { data, error: reloadError } = await fetchQuestionBank();
-
-    if (reloadError) {
-      setQuestionStatusMessage(
-        `Question saved, but refreshing failed: ${reloadError.message}`,
-      );
-      setIsSavingQuestion(false);
-      return;
-    }
-
-    setQuestionBank((data as QuestionBankQuestion[]) ?? []);
+    const { questionBank: refreshedQuestions } = await loadAdminData();
+    setQuestionBank(refreshedQuestions);
     setDraftQuestions((currentDrafts) => ({
       ...currentDrafts,
       [assignmentId]: "",
@@ -229,28 +229,27 @@ export default function InstructorPage() {
     setIsSavingQuestion(true);
     setQuestionStatusMessage("");
 
-    const { error } = await supabase
-      .from("question_bank")
-      .update({ question_text: trimmedQuestion })
-      .eq("id", questionId);
+    const response = await fetch("/api/admin/question-bank", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        questionId,
+        questionText: trimmedQuestion,
+      }),
+    });
 
-    if (error) {
-      setQuestionStatusMessage(`Could not update question: ${error.message}`);
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setQuestionStatusMessage(payload.error ?? "Could not update question.");
       setIsSavingQuestion(false);
       return;
     }
 
-    const { data, error: reloadError } = await fetchQuestionBank();
-
-    if (reloadError) {
-      setQuestionStatusMessage(
-        `Question updated, but refreshing failed: ${reloadError.message}`,
-      );
-      setIsSavingQuestion(false);
-      return;
-    }
-
-    setQuestionBank((data as QuestionBankQuestion[]) ?? []);
+    const { questionBank: refreshedQuestions } = await loadAdminData();
+    setQuestionBank(refreshedQuestions);
     setEditingQuestionId("");
     setEditingQuestionText("");
     setQuestionStatusMessage("Question updated successfully.");
@@ -261,25 +260,23 @@ export default function InstructorPage() {
     setIsSavingQuestion(true);
     setQuestionStatusMessage("");
 
-    const { error } = await supabase.from("question_bank").delete().eq("id", questionId);
+    const response = await fetch(
+      `/api/admin/question-bank?questionId=${encodeURIComponent(questionId)}`,
+      {
+        method: "DELETE",
+      },
+    );
 
-    if (error) {
-      setQuestionStatusMessage(`Could not delete question: ${error.message}`);
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setQuestionStatusMessage(payload.error ?? "Could not delete question.");
       setIsSavingQuestion(false);
       return;
     }
 
-    const { data, error: reloadError } = await fetchQuestionBank();
-
-    if (reloadError) {
-      setQuestionStatusMessage(
-        `Question deleted, but refreshing failed: ${reloadError.message}`,
-      );
-      setIsSavingQuestion(false);
-      return;
-    }
-
-    setQuestionBank((data as QuestionBankQuestion[]) ?? []);
+    const { questionBank: refreshedQuestions } = await loadAdminData();
+    setQuestionBank(refreshedQuestions);
     if (editingQuestionId === questionId) {
       setEditingQuestionId("");
       setEditingQuestionText("");

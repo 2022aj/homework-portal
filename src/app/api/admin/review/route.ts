@@ -1,0 +1,60 @@
+import { NextResponse } from "next/server";
+import { requireAdminSession } from "@/lib/server/admin-session";
+import { getSupabaseAdmin } from "@/lib/server/supabase-admin";
+
+type SubmissionQueryRow = {
+  id: string;
+  student_name: string;
+  file_name: string;
+  file_path: string;
+  submitted_at: string;
+  assignments: Array<{
+    title: string;
+  }>;
+  generated_questions: Array<{
+    id: string;
+    question_text: string;
+    student_answers: Array<{
+      answer_text: string;
+    }>;
+  }>;
+};
+
+export async function GET() {
+  const isAdmin = await requireAdminSession();
+  const supabaseAdmin = getSupabaseAdmin();
+
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("submissions")
+    .select(
+      "id, student_name, file_name, file_path, submitted_at, assignments(title), generated_questions(id, question_text, student_answers(answer_text))",
+    )
+    .order("submitted_at", { ascending: false });
+
+  if (error) {
+    return NextResponse.json(
+      { error: `Could not load submissions: ${error.message}` },
+      { status: 500 },
+    );
+  }
+
+  const normalizedSubmissions = await Promise.all(
+    ((data as SubmissionQueryRow[]) ?? []).map(async (submission) => {
+      const signedUrlResponse = await supabaseAdmin.storage
+        .from("assignment-files")
+        .createSignedUrl(submission.file_path, 60 * 60);
+
+      return {
+        ...submission,
+        assignments: submission.assignments[0] ?? null,
+        file_url: signedUrlResponse.data?.signedUrl ?? null,
+      };
+    }),
+  );
+
+  return NextResponse.json({ submissions: normalizedSubmissions });
+}

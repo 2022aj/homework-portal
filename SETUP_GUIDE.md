@@ -12,6 +12,7 @@ This project is the starting point for your homework submission website.
 - The student page now pulls 3 random questions from the assignment bank and saves answers.
 - The review page now shows submissions, uploaded files, questions, and answers.
 - The instructor and review pages are now protected by an admin login.
+- The app now uses server routes for private instructor/review data and student submission writes.
 - Supabase has been connected with environment variables and a client helper.
 
 ## Main pages
@@ -29,10 +30,12 @@ This project is the starting point for your homework submission website.
 
 - `ADMIN_ACCESS_PASSWORD` is the password you will type on the instructor login page
 - `ADMIN_SESSION_SECRET` is a long random value used for the protected session cookie
+- `SUPABASE_SERVICE_ROLE_KEY` is used only on the server for locked-down database access
 
 ## Required SQL
 
 Run the SQL in `SUPABASE_QUESTION_BANK.sql` before using the question bank.
+Run the SQL in `SUPABASE_LOCKDOWN.sql` before sharing the site with students.
 
 ## Supabase files
 
