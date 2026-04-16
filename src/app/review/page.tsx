@@ -11,6 +11,7 @@ type ReviewSubmission = {
   file_path: string;
   submitted_at: string;
   assignments: {
+    id: string;
     title: string;
   } | null;
   generated_questions: Array<{
@@ -43,26 +44,16 @@ export default function ReviewPage() {
   const [assignments, setAssignments] = useState<AssignmentOption[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedAssignmentTitle, setSelectedAssignmentTitle] = useState("all");
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState("all");
   const [studentSearch, setStudentSearch] = useState("");
-
-  const assignmentOptions = useMemo(() => {
-    const titles = assignments
-      .map((assignment) => assignment.title)
-      .filter((title): title is string => Boolean(title));
-
-    return Array.from(new Set(titles)).sort((first, second) =>
-      first.localeCompare(second),
-    );
-  }, [assignments]);
 
   const filteredSubmissions = useMemo(() => {
     const normalizedSearch = studentSearch.trim().toLowerCase();
 
     return submissions.filter((submission) => {
       const matchesAssignment =
-        selectedAssignmentTitle === "all" ||
-        submission.assignments?.title === selectedAssignmentTitle;
+        selectedAssignmentId === "all" ||
+        submission.assignments?.id === selectedAssignmentId;
 
       const matchesStudent =
         normalizedSearch.length === 0 ||
@@ -70,7 +61,7 @@ export default function ReviewPage() {
 
       return matchesAssignment && matchesStudent;
     });
-  }, [selectedAssignmentTitle, studentSearch, submissions]);
+  }, [selectedAssignmentId, studentSearch, submissions]);
 
   useEffect(() => {
     let isActive = true;
@@ -169,13 +160,13 @@ export default function ReviewPage() {
           <label className="form-field">
             <span>Filter by assignment</span>
             <select
-              onChange={(event) => setSelectedAssignmentTitle(event.target.value)}
-              value={selectedAssignmentTitle}
+              onChange={(event) => setSelectedAssignmentId(event.target.value)}
+              value={selectedAssignmentId}
             >
               <option value="all">All assignments</option>
-              {assignmentOptions.map((title) => (
-                <option key={title} value={title}>
-                  {title}
+              {assignments.map((assignment) => (
+                <option key={assignment.id} value={assignment.id}>
+                  {assignment.title}
                 </option>
               ))}
             </select>
@@ -195,7 +186,7 @@ export default function ReviewPage() {
             <button
               className="button-secondary w-full"
               onClick={() => {
-                setSelectedAssignmentTitle("all");
+                setSelectedAssignmentId("all");
                 setStudentSearch("");
               }}
               type="button"

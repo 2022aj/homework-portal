@@ -8,9 +8,17 @@ type SubmissionQueryRow = {
   file_name: string;
   file_path: string;
   submitted_at: string;
-  assignments: Array<{
-    title: string;
-  }>;
+  assignment_id: string;
+  assignments:
+    | {
+        id: string;
+        title: string;
+      }
+    | Array<{
+        id: string;
+        title: string;
+      }>
+    | null;
   generated_questions: Array<{
     id: string;
     question_text: string;
@@ -31,7 +39,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("submissions")
     .select(
-      "id, student_name, file_name, file_path, submitted_at, assignments(title), generated_questions(id, question_text, student_answers(answer_text))",
+      "id, assignment_id, student_name, file_name, file_path, submitted_at, assignments(id, title), generated_questions(id, question_text, student_answers(answer_text))",
     )
     .order("submitted_at", { ascending: false });
 
@@ -44,13 +52,17 @@ export async function GET() {
 
   const normalizedSubmissions = await Promise.all(
     ((data as SubmissionQueryRow[]) ?? []).map(async (submission) => {
+      const assignment = Array.isArray(submission.assignments)
+        ? submission.assignments[0] ?? null
+        : submission.assignments;
+
       const signedUrlResponse = await supabaseAdmin.storage
         .from("assignment-files")
         .createSignedUrl(submission.file_path, 60 * 60);
 
       return {
         ...submission,
-        assignments: submission.assignments[0] ?? null,
+        assignments: assignment,
         file_url: signedUrlResponse.data?.signedUrl ?? null,
       };
     }),
