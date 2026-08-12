@@ -429,9 +429,9 @@ export default function InstructorPage() {
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div>
-                    <p className="section-label">Question bank</p>
+                    <p className="section-label">Question bank (fallback)</p>
                     <h4 className="text-lg font-semibold text-slate-900">
-                      Random student questions
+                      Backup questions
                     </h4>
                   </div>
                   <p className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
@@ -467,8 +467,9 @@ export default function InstructorPage() {
                 <div className="mt-4 grid gap-3">
                   {getQuestionsForAssignment(assignment.id).length === 0 ? (
                     <p className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-700">
-                      No questions yet. Add at least 3 so students can receive a
-                      random set on submission.
+                      Claude generates 3 questions from each student&apos;s uploaded
+                      file automatically. Add at least 3 questions here anyway as a
+                      backup in case AI generation ever fails for a submission.
                     </p>
                   ) : null}
 
