@@ -271,7 +271,7 @@ export default function ReviewPage() {
                       key={question.id}
                       className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5"
                     >
-                      <p className="text-sm font-semibold uppercase tracking-[0.15em] text-amber-700">
+                      <p className="text-sm font-semibold uppercase tracking-[0.15em] text-[#0062b8]">
                         Question {index + 1}
                       </p>
                       <p className="mt-2 text-lg font-medium text-slate-900">

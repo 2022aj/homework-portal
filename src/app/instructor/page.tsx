@@ -366,7 +366,7 @@ export default function InstructorPage() {
           ) : null}
 
           {questionStatusMessage ? (
-            <p className="rounded-2xl bg-amber-100 px-4 py-3 text-sm text-amber-950">
+            <p className="rounded-2xl bg-[#d9ecfb] px-4 py-3 text-sm text-[#002e5d]">
               {questionStatusMessage}
             </p>
           ) : null}
@@ -480,7 +480,7 @@ export default function InstructorPage() {
                     >
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex-1">
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#0062b8]">
                             Bank question {index + 1}
                           </p>
 
