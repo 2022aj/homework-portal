@@ -39,13 +39,54 @@ function formatSubmittedAt(timestamp: string) {
   });
 }
 
+async function loadReviewData() {
+  const [reviewResponse, assignmentsResponse] = await Promise.all([
+    fetch("/api/admin/review", {
+      method: "GET",
+      cache: "no-store",
+    }),
+    fetch("/api/admin/assignments", {
+      method: "GET",
+      cache: "no-store",
+    }),
+  ]);
+
+  const payload = (await reviewResponse.json()) as {
+    submissions?: ReviewSubmission[];
+    error?: string;
+  };
+
+  const assignmentsPayload = (await assignmentsResponse.json()) as {
+    assignments?: AssignmentOption[];
+    error?: string;
+  };
+
+  if (!reviewResponse.ok) {
+    throw new Error(payload.error ?? "Could not load submissions.");
+  }
+
+  if (!assignmentsResponse.ok) {
+    throw new Error(
+      assignmentsPayload.error ?? "Could not load assignment filters.",
+    );
+  }
+
+  return {
+    submissions: payload.submissions ?? [],
+    assignments: assignmentsPayload.assignments ?? [],
+  };
+}
+
 export default function ReviewPage() {
   const [submissions, setSubmissions] = useState<ReviewSubmission[]>([]);
   const [assignments, setAssignments] = useState<AssignmentOption[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("all");
   const [studentSearch, setStudentSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const filteredSubmissions = useMemo(() => {
     const normalizedSearch = studentSearch.trim().toLowerCase();
@@ -63,60 +104,163 @@ export default function ReviewPage() {
     });
   }, [selectedAssignmentId, studentSearch, submissions]);
 
+  const allFilteredSelected =
+    filteredSubmissions.length > 0 &&
+    filteredSubmissions.every((submission) => selectedIds.has(submission.id));
+
   useEffect(() => {
     let isActive = true;
 
-    async function loadSubmissions() {
-      const [reviewResponse, assignmentsResponse] = await Promise.all([
-        fetch("/api/admin/review", {
-          method: "GET",
-          cache: "no-store",
-        }),
-        fetch("/api/admin/assignments", {
-          method: "GET",
-          cache: "no-store",
-        }),
-      ]);
+    async function initialize() {
+      try {
+        const { submissions: submissionData, assignments: assignmentData } =
+          await loadReviewData();
 
-      if (!isActive) {
-        return;
-      }
+        if (!isActive) {
+          return;
+        }
 
-      const payload = (await reviewResponse.json()) as {
-        submissions?: ReviewSubmission[];
-        error?: string;
-      };
-
-      const assignmentsPayload = (await assignmentsResponse.json()) as {
-        assignments?: AssignmentOption[];
-        error?: string;
-      };
-
-      if (!reviewResponse.ok) {
-        setStatusMessage(payload.error ?? "Could not load submissions.");
+        setSubmissions(submissionData);
+        setAssignments(assignmentData);
         setIsLoading(false);
-        return;
-      }
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
 
-      if (!assignmentsResponse.ok) {
-        setStatusMessage(
-          assignmentsPayload.error ?? "Could not load assignment filters.",
-        );
+        const message =
+          error instanceof Error ? error.message : "Could not load submissions.";
+        setStatusMessage(message);
         setIsLoading(false);
-        return;
       }
-
-      setSubmissions(payload.submissions ?? []);
-      setAssignments(assignmentsPayload.assignments ?? []);
-      setIsLoading(false);
     }
 
-    void loadSubmissions();
+    void initialize();
 
     return () => {
       isActive = false;
     };
   }, []);
+
+  function toggleSelected(submissionId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(submissionId)) {
+        next.delete(submissionId);
+      } else {
+        next.add(submissionId);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAllFiltered() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allFilteredSelected) {
+        filteredSubmissions.forEach((submission) => next.delete(submission.id));
+      } else {
+        filteredSubmissions.forEach((submission) => next.add(submission.id));
+      }
+      return next;
+    });
+  }
+
+  async function refreshAfterDelete() {
+    try {
+      const { submissions: submissionData, assignments: assignmentData } =
+        await loadReviewData();
+      setSubmissions(submissionData);
+      setAssignments(assignmentData);
+    } catch (error) {
+      setActionMessage(
+        error instanceof Error
+          ? error.message
+          : "Deleted, but the list could not be refreshed. Reload the page to see current data.",
+      );
+    }
+  }
+
+  async function handleDeleteSubmission(submissionId: string) {
+    const confirmed = window.confirm(
+      "Delete this submission? This permanently removes the uploaded file, its generated questions, and the student's answers. This cannot be undone.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setActionMessage("");
+
+    const response = await fetch(
+      `/api/admin/review?submissionId=${encodeURIComponent(submissionId)}`,
+      { method: "DELETE" },
+    );
+
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setActionMessage(payload.error ?? "Could not delete submission.");
+      setIsDeleting(false);
+      return;
+    }
+
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(submissionId);
+      return next;
+    });
+    setActionMessage("Submission deleted.");
+    await refreshAfterDelete();
+    setIsDeleting(false);
+  }
+
+  async function handleBulkDelete() {
+    const count = selectedIds.size;
+
+    if (count === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${count} selected submission${count === 1 ? "" : "s"}? This permanently removes the uploaded files, their generated questions, and student answers. This cannot be undone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setActionMessage("");
+
+    const response = await fetch("/api/admin/review", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ submissionIds: Array.from(selectedIds) }),
+    });
+
+    const payload = (await response.json()) as {
+      error?: string;
+      deletedCount?: number;
+    };
+
+    if (!response.ok) {
+      setActionMessage(payload.error ?? "Could not delete the selected submissions.");
+      setIsDeleting(false);
+      return;
+    }
+
+    const deletedCount = payload.deletedCount ?? count;
+    setSelectedIds(new Set());
+    setActionMessage(
+      `Deleted ${deletedCount} submission${deletedCount === 1 ? "" : "s"}.`,
+    );
+    await refreshAfterDelete();
+    setIsDeleting(false);
+  }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-10 lg:px-10">
@@ -196,6 +340,36 @@ export default function ReviewPage() {
           </div>
         </div>
 
+        {!isLoading && !statusMessage && filteredSubmissions.length > 0 ? (
+          <div className="mb-6 flex flex-col gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                checked={allFilteredSelected}
+                onChange={toggleSelectAllFiltered}
+                type="checkbox"
+              />
+              Select all shown ({filteredSubmissions.length})
+            </label>
+
+            <button
+              className="button-secondary"
+              disabled={selectedIds.size === 0 || isDeleting}
+              onClick={() => void handleBulkDelete()}
+              type="button"
+            >
+              {isDeleting
+                ? "Deleting..."
+                : `Delete selected (${selectedIds.size})`}
+            </button>
+          </div>
+        ) : null}
+
+        {actionMessage ? (
+          <p className="mb-6 rounded-2xl bg-[#002e5d] px-4 py-3 text-sm text-white">
+            {actionMessage}
+          </p>
+        ) : null}
+
         {isLoading ? (
           <p className="text-slate-600">Loading submissions...</p>
         ) : null}
@@ -231,7 +405,14 @@ export default function ReviewPage() {
               >
                 <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
                   <div className="space-y-3">
-                    <p className="section-label">Submission</p>
+                    <label className="flex items-center gap-2">
+                      <input
+                        checked={selectedIds.has(submission.id)}
+                        onChange={() => toggleSelected(submission.id)}
+                        type="checkbox"
+                      />
+                      <span className="section-label">Submission</span>
+                    </label>
                     <div className="space-y-1">
                       <h3 className="text-2xl font-semibold text-slate-900">
                         {submission.assignments?.title ?? "Untitled assignment"}
@@ -247,7 +428,7 @@ export default function ReviewPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-start">
+                  <div className="flex flex-col items-stretch gap-2 sm:items-end">
                     <a
                       className="button-secondary"
                       href={submission.file_url ?? "#"}
@@ -256,6 +437,14 @@ export default function ReviewPage() {
                     >
                       Open uploaded file
                     </a>
+                    <button
+                      className="button-secondary"
+                      disabled={isDeleting}
+                      onClick={() => void handleDeleteSubmission(submission.id)}
+                      type="button"
+                    >
+                      Delete submission
+                    </button>
                   </div>
                 </div>
 

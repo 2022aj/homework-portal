@@ -61,6 +61,16 @@ textarea:focus {
   box-shadow: 0 0 0 4px rgba(0, 98, 184, 0.14);
 }
 
+input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border-radius: 0.35rem;
+  accent-color: #002e5d;
+  cursor: pointer;
+}
+
 .button-primary,
 .button-secondary {
   display: inline-flex;
