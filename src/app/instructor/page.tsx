@@ -42,6 +42,22 @@ function formatAllowedTypes(types: string[]) {
   return types.map((type) => `.${type}`).join(", ");
 }
 
+function getFileTypeGroupForTypes(
+  types: string[],
+): keyof typeof fileTypeOptions {
+  const sortedTypes = [...types].sort().join(",");
+
+  for (const key of Object.keys(fileTypeOptions) as Array<
+    keyof typeof fileTypeOptions
+  >) {
+    if ([...fileTypeOptions[key]].sort().join(",") === sortedTypes) {
+      return key;
+    }
+  }
+
+  return "both";
+}
+
 export default function InstructorPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [questionBank, setQuestionBank] = useState<QuestionBankQuestion[]>([]);
@@ -58,6 +74,13 @@ export default function InstructorPage() {
   const [editingQuestionText, setEditingQuestionText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [draftQuestions, setDraftQuestions] = useState<Record<string, string>>({});
+  const [editingAssignmentId, setEditingAssignmentId] = useState("");
+  const [editingAssignmentTitle, setEditingAssignmentTitle] = useState("");
+  const [editingAssignmentDescription, setEditingAssignmentDescription] =
+    useState("");
+  const [editingAssignmentDueDate, setEditingAssignmentDueDate] = useState("");
+  const [editingAssignmentFileTypeGroup, setEditingAssignmentFileTypeGroup] =
+    useState<keyof typeof fileTypeOptions>("excel");
 
   async function loadAdminData() {
     const response = await fetch("/api/admin/assignments", {
@@ -148,6 +171,123 @@ export default function InstructorPage() {
     setStatusMessage("Assignment saved successfully.");
     const { assignments: assignmentData } = await loadAdminData();
     setAssignments(assignmentData);
+    setIsSaving(false);
+  }
+
+  function startEditingAssignment(assignment: Assignment) {
+    setEditingAssignmentId(assignment.id);
+    setEditingAssignmentTitle(assignment.title);
+    setEditingAssignmentDescription(assignment.description ?? "");
+    setEditingAssignmentDueDate(assignment.due_date ?? "");
+    setEditingAssignmentFileTypeGroup(
+      getFileTypeGroupForTypes(assignment.allowed_file_types),
+    );
+    setStatusMessage("");
+  }
+
+  function cancelEditingAssignment() {
+    setEditingAssignmentId("");
+    setEditingAssignmentTitle("");
+    setEditingAssignmentDescription("");
+    setEditingAssignmentDueDate("");
+  }
+
+  async function handleAssignmentUpdate(assignmentId: string) {
+    if (!editingAssignmentTitle.trim()) {
+      setStatusMessage("Assignment title cannot be empty.");
+      return;
+    }
+
+    setIsSaving(true);
+    setStatusMessage("");
+
+    const response = await fetch("/api/admin/assignments", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        assignmentId,
+        title: editingAssignmentTitle,
+        description: editingAssignmentDescription,
+        dueDate: editingAssignmentDueDate || null,
+        allowedFileTypes: fileTypeOptions[editingAssignmentFileTypeGroup],
+      }),
+    });
+
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setStatusMessage(payload.error ?? "Could not update assignment.");
+      setIsSaving(false);
+      return;
+    }
+
+    const { assignments: assignmentData } = await loadAdminData();
+    setAssignments(assignmentData);
+    setEditingAssignmentId("");
+    setStatusMessage("Assignment updated successfully.");
+    setIsSaving(false);
+  }
+
+  async function handleAssignmentDelete(
+    assignmentId: string,
+    assignmentTitle: string,
+  ) {
+    const confirmed = window.confirm(
+      `Delete "${assignmentTitle}"? This cannot be undone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsSaving(true);
+    setStatusMessage("");
+
+    let response = await fetch(
+      `/api/admin/assignments?assignmentId=${encodeURIComponent(assignmentId)}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    if (response.status === 409) {
+      // The assignment has submissions attached. Ask specifically whether
+      // to delete those too before retrying with the force flag.
+      const forceConfirmed = window.confirm(
+        `"${assignmentTitle}" already has student submissions attached. Delete the assignment AND permanently remove those submissions, their generated questions, and student answers too?`,
+      );
+
+      if (!forceConfirmed) {
+        setIsSaving(false);
+        return;
+      }
+
+      response = await fetch(
+        `/api/admin/assignments?assignmentId=${encodeURIComponent(assignmentId)}&force=true`,
+        {
+          method: "DELETE",
+        },
+      );
+    }
+
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+      setStatusMessage(payload.error ?? "Could not delete assignment.");
+      setIsSaving(false);
+      return;
+    }
+
+    const { assignments: assignmentData, questionBank: questionData } =
+      await loadAdminData();
+    setAssignments(assignmentData);
+    setQuestionBank(questionData);
+    if (editingAssignmentId === assignmentId) {
+      setEditingAssignmentId("");
+    }
+    setStatusMessage("Assignment deleted successfully.");
     setIsSaving(false);
   }
 
@@ -398,32 +538,131 @@ export default function InstructorPage() {
               className="grid gap-6 rounded-[1.5rem] border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[0.9fr_1.1fr]"
             >
               <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-slate-500">Assignment</p>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {assignment.title}
-                  </h3>
-                  {assignment.description ? (
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      {assignment.description}
-                    </p>
-                  ) : null}
-                </div>
+                {editingAssignmentId === assignment.id ? (
+                  <div className="grid gap-3">
+                    <label className="form-field">
+                      <span>Assignment title</span>
+                      <input
+                        onChange={(event) =>
+                          setEditingAssignmentTitle(event.target.value)
+                        }
+                        type="text"
+                        value={editingAssignmentTitle}
+                      />
+                    </label>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm text-slate-500">Due date</p>
-                    <p className="font-medium text-slate-800">
-                      {formatDate(assignment.due_date)}
-                    </p>
+                    <label className="form-field">
+                      <span>Due date</span>
+                      <input
+                        onChange={(event) =>
+                          setEditingAssignmentDueDate(event.target.value)
+                        }
+                        type="date"
+                        value={editingAssignmentDueDate}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>Accepted file type</span>
+                      <select
+                        onChange={(event) =>
+                          setEditingAssignmentFileTypeGroup(
+                            event.target.value as keyof typeof fileTypeOptions,
+                          )
+                        }
+                        value={editingAssignmentFileTypeGroup}
+                      >
+                        <option value="excel">Excel</option>
+                        <option value="powerpoint">PowerPoint</option>
+                        <option value="both">Excel and PowerPoint</option>
+                      </select>
+                    </label>
+
+                    <label className="form-field">
+                      <span>Instructions</span>
+                      <textarea
+                        onChange={(event) =>
+                          setEditingAssignmentDescription(event.target.value)
+                        }
+                        rows={4}
+                        value={editingAssignmentDescription}
+                      />
+                    </label>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <button
+                        className="button-secondary"
+                        disabled={isSaving}
+                        onClick={() => void handleAssignmentUpdate(assignment.id)}
+                        type="button"
+                      >
+                        {isSaving ? "Saving..." : "Save changes"}
+                      </button>
+                      <button
+                        className="button-secondary"
+                        disabled={isSaving}
+                        onClick={cancelEditingAssignment}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Allowed files</p>
-                    <p className="font-medium text-slate-800">
-                      {formatAllowedTypes(assignment.allowed_file_types)}
-                    </p>
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-slate-500">Assignment</p>
+                        <h3 className="text-lg font-semibold text-slate-900">
+                          {assignment.title}
+                        </h3>
+                        {assignment.description ? (
+                          <p className="mt-2 text-sm leading-6 text-slate-600">
+                            {assignment.description}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="flex flex-col gap-2 sm:w-24">
+                        <button
+                          className="button-secondary"
+                          onClick={() => startEditingAssignment(assignment)}
+                          type="button"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="button-secondary"
+                          disabled={isSaving}
+                          onClick={() =>
+                            void handleAssignmentDelete(
+                              assignment.id,
+                              assignment.title,
+                            )
+                          }
+                          type="button"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <p className="text-sm text-slate-500">Due date</p>
+                        <p className="font-medium text-slate-800">
+                          {formatDate(assignment.due_date)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-500">Allowed files</p>
+                        <p className="font-medium text-slate-800">
+                          {formatAllowedTypes(assignment.allowed_file_types)}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4">
